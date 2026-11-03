@@ -1,0 +1,51 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>__TITLE__ - take review</title>
+<style>
+:root{--bg:#0B0F1C;--card:#121A30;--ink:#EEF2FB;--mute:#A3AEC8;--line:#26304F;--acc:#5B7CF0;--pk:#2FBF71;--no:#E5484D}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,sans-serif;padding:16px 24px 96px}
+h1{font-size:22px;margin:4px 0}.sub{color:var(--mute);margin:0 0 16px;max-width:75ch}
+section{margin:24px 0}h2{font-size:17px;margin:0 0 4px}.scr{color:var(--mute);margin:0 0 8px;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.c{background:var(--card);border:2px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px}
+.c.pk{border-color:#2a6b4a}.c.d-use{border-color:var(--pk)}.c.d-skip{border-color:var(--no);opacity:.6}
+.top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}.tk{color:var(--mute)}
+.mine{background:#1d3b2c;color:#9be3bc;font-weight:700;border-radius:999px;padding:1px 8px;font-size:12px}
+video{width:100%;aspect-ratio:9/16;max-height:360px;object-fit:contain;background:#000;border-radius:6px}
+.ctl{display:flex;gap:6px}button{min-height:44px;background:var(--line);color:var(--ink);border:0;border-radius:6px;padding:6px 12px;font-weight:600;cursor:pointer}
+button.play{background:var(--acc);color:#fff}.c.d-use .use{background:var(--pk);color:#04130a}.c.d-skip .skip{background:var(--no);color:#fff}
+button:focus-visible,textarea:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}.chip{font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:0 7px}
+.tx{margin:0;font-size:14px}.why{margin:0;color:var(--mute);font-size:13px}
+textarea{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;min-height:40px;font:13px system-ui}
+.bar{position:fixed;left:0;right:0;bottom:0;background:#0d1426;border-top:1px solid var(--line);padding:10px 24px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#out{flex:1;color:var(--mute);font-size:13px}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+<h1>__TITLE__ - take review</h1>
+<p class="sub">Each section is one line or talking point. Every usable attempt is shown with its trimmed text and auto signals; "Suggested" is the agent's pick. Press Play to hear just that clip (pauses already tightened). Mark each one Use or Skip and add notes. Untouched cards fall back to the suggestion. When you're done press "Save decisions" and tell the agent. Your choices are also kept in this browser.</p>
+__ROWS__
+<div class="bar"><button id="save" class="play">Save decisions (JSON)</button><button id="copy">Copy as text</button><span id="out">Nothing saved yet.</span></div>
+<textarea id="fallback" style="display:none;width:100%;height:140px"></textarea>
+<script>
+const K='__KEY__';let st={};try{st=JSON.parse(localStorage.getItem(K)||'{}')}catch(e){}
+const persist=()=>{try{localStorage.setItem(K,JSON.stringify(st))}catch(e){}};
+document.querySelectorAll('.c').forEach(c=>{const id=c.dataset.beat+'/'+c.dataset.i,ta=c.querySelector('textarea');
+ const paint=()=>{c.classList.remove('d-use','d-skip');if(st[id]&&st[id].d)c.classList.add('d-'+st[id].d)};
+ if(st[id]){ta.value=st[id].note||''}paint();
+ c.querySelectorAll('.dec').forEach(b=>b.addEventListener('click',()=>{st[id]=st[id]||{};st[id].d=st[id].d===b.dataset.d?'':b.dataset.d;persist();paint()}));
+ ta.addEventListener('input',()=>{st[id]=st[id]||{};st[id].note=ta.value;persist()});
+ const v=c.querySelector('video'),sp=JSON.parse(v.dataset.spans);let k=0;
+ c.querySelector('.play').addEventListener('click',()=>{document.querySelectorAll('video').forEach(x=>x!==v&&x.pause());k=0;
+  if(!v.src){v.src=v.dataset.src;v.preload='auto'}const go=()=>{v.currentTime=sp[0][0];v.play()};if(v.readyState>=1)go();else v.addEventListener('loadedmetadata',go,{once:true})});
+ v.addEventListener('timeupdate',()=>{if(k<sp.length&&v.currentTime>=sp[k][1]){k++;if(k<sp.length)v.currentTime=sp[k][0];else v.pause()}});
+});
+function collect(){const clips=[];document.querySelectorAll('.c').forEach(c=>{const id=c.dataset.beat+'/'+c.dataset.i,s=st[id]||{},sug=c.classList.contains('pk');
+ clips.push({beat:c.dataset.beat,i:+c.dataset.i,take:c.dataset.take,file:c.dataset.file,in:+c.dataset.in,out:+c.dataset.out,suggested:sug,decision:s.d||'',use:s.d?s.d==='use':sug,note:(s.note||'').trim()})});
+ return {title:document.title,mode:'__MODE__',key:K,saved_at:new Date().toISOString(),clips}}
+document.getElementById('save').addEventListener('click',()=>{const d=collect(),b=new Blob([JSON.stringify(d,null,1)],{type:'application/json'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(b);a.download=K.replace('-review-v1','')+'-decisions.json';document.body.appendChild(a);a.click();a.remove();
+ document.getElementById('out').textContent='Saved '+a.download+' to Downloads: '+d.clips.filter(x=>x.use).length+' clips in use, '+d.clips.filter(x=>x.note).length+' notes.'});
+document.getElementById('copy').addEventListener('click',()=>{const d=collect(),lines=d.clips.filter(x=>x.decision||x.note).map(x=>x.beat+' | take '+x.take+' ('+x.file+' '+x.in+'s) | '+(x.use?'USE':'SKIP')+(x.note?' | '+x.note:''));
+ const t=d.title+' changes:\n'+(lines.join('\n')||'(no changes - keep the suggestions)');
+ const fb=()=>{const f=document.getElementById('fallback');f.style.display='block';f.value=t;f.select();document.getElementById('out').textContent='Copy blocked - press Cmd+C.'};
+ try{navigator.clipboard.writeText(t).then(()=>document.getElementById('out').textContent='Copied '+lines.length+' change(s).',fb)}catch(e){fb()}});
+</script>
